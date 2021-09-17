@@ -21,12 +21,25 @@
       pkgs = import nixpkgs {
         inherit system;
       };
+      # TODO: This should be replaced with the libtexpdf package from nixpkgs
+      # in the inputs, or perhaps this should be kept that way, to make it easy
+      # to test things?
+      libtexpdf-src = builtins.fetchGit {
+        url = "https://github.com/sile-typesetter/libtexpdf";
+        rev = "${(pkgs.lib.fileContents "${self}/libtexpdf.git-rev")}";
+      };
       # Use the expression from Nixpkgs instead of rewriting it here.
       sile = pkgs.sile.overrideAttrs(oldAttr: rec {
         version = "${(pkgs.lib.importJSON ./package.json).version}-flake";
         src = builtins.filterSource
           (path: type: type != "directory" || baseNameOf path != ".git")
         ./.;
+        preAutoreconf = ''
+          rm -rf ./libtexpdf
+          # From some reason without this flag, libtexpdf/ is unwriteable
+          cp --no-preserve=mode -r ${libtexpdf-src} ./libtexpdf/
+          ls -l ./libtexpdf
+        '';
         # Don't build the manual as it's time consuming, and it requires fonts
         # that are not available in the sandbox due to internet connection
         # missing in the sandbox.
